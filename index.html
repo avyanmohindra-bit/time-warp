@@ -1,0 +1,1323 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#090b18" />
+  <meta name="description" content="A vibrant interactive time clock, stopwatch, focus timer, and ambient sound studio." />
+  <title>CHRONOVA — Time, Reimagined</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Space Grotesk', 'sans-serif'],
+            mono: ['monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #090b18;
+      --panel: rgba(22, 25, 48, .70);
+      --border: rgba(255,255,255,.11);
+      --text: #f4f3ff;
+      --muted: #a0a5c3;
+      --a: #8b5cf6;
+      --b: #22d3ee;
+      --c: #f472b6;
+      --glow: rgba(139,92,246,.2);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--bg);
+      transition: background .7s, color .5s;
+      overflow-x: hidden;
+    }
+
+    body[data-theme="cyberpunk"] {
+      --bg: #090b18; --panel: rgba(22,25,48,.72);
+      --a: #8b5cf6; --b: #22d3ee; --c: #f472b6;
+      --glow: rgba(139,92,246,.22);
+    }
+
+    body[data-theme="synthwave"] {
+      --bg: #180b27; --panel: rgba(53,20,66,.66);
+      --a: #ff4ecd; --b: #8b5cf6; --c: #ff9d5c;
+      --glow: rgba(255,78,205,.24);
+    }
+
+    body[data-theme="pastel"] {
+      --bg: #edf1ff; --panel: rgba(255,255,255,.76);
+      --border: rgba(95,83,160,.15);
+      --text: #282744; --muted: #716f91;
+      --a: #9585f5; --b: #54bcd1; --c: #ee91bd;
+      --glow: rgba(149,133,245,.2);
+    }
+
+    body[data-theme="aurora"] {
+      --bg: #071a1d; --panel: rgba(9,45,46,.68);
+      --a: #40e0b0; --b: #64a8ff; --c: #c084fc;
+      --glow: rgba(64,224,176,.2);
+    }
+
+    body.day-morning { --a: #f6a6c8; --b: #f7d794; --glow: rgba(246,166,200,.19); }
+    body.day-sunset { --a: #ff7b54; --b: #ffbd69; --glow: rgba(255,123,84,.23); }
+    body.day-night:not([data-theme="pastel"]) { --a: #8b5cf6; --b: #22d3ee; --glow: rgba(139,92,246,.22); }
+
+    .ambient {
+      position: fixed;
+      inset: -20%;
+      z-index: -3;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse at 15% 15%, var(--glow), transparent 40%),
+        radial-gradient(ellipse at 85% 35%, color-mix(in srgb, var(--b) 15%, transparent), transparent 42%),
+        radial-gradient(ellipse at 50% 90%, color-mix(in srgb, var(--c) 11%, transparent), transparent 42%);
+      animation: ambientMove 14s ease-in-out infinite alternate;
+      transition: background 1s;
+    }
+
+    .noise {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      pointer-events: none;
+      opacity: .035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+    }
+
+    @keyframes ambientMove {
+      from { transform: translate(-2%, -1%) scale(1); }
+      to { transform: translate(2%, 2%) scale(1.08); }
+    }
+
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: .7; transform: scale(.96); }
+      50% { opacity: 1; transform: scale(1.04); }
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(18px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .animate-enter { animation: enter .75s cubic-bezier(.2,.8,.2,1) both; }
+    .delay-1 { animation-delay: .1s; }
+    .delay-2 { animation-delay: .2s; }
+    .delay-3 { animation-delay: .3s; }
+
+    .glass {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      border-radius: 25px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.09);
+      transition: border-color .3s, transform .3s, background .5s;
+    }
+
+    .glass:hover { border-color: color-mix(in srgb, var(--a) 48%, var(--border)); }
+
+    .muted { color: var(--muted); }
+    .gradient-text {
+      background: linear-gradient(110deg, var(--a), var(--b), var(--c));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .clock-digits {
+      font-size: clamp(3.2rem, 10.2vw, 7.4rem);
+      font-weight: 700;
+      letter-spacing: -.075em;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .clock-digits .seconds {
+      font-size: .48em;
+      letter-spacing: -.04em;
+      vertical-align: baseline;
+      opacity: .8;
+    }
+
+    .clock-digits .ampm {
+      display: inline-block;
+      font-size: .21em;
+      letter-spacing: .03em;
+      vertical-align: top;
+      margin: .55em 0 0 .5em;
+      color: var(--b);
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--panel) 75%, transparent);
+      color: var(--text);
+      padding: 10px 15px;
+      border-radius: 13px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .18s, box-shadow .25s, background .25s, border-color .25s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      border-color: var(--a);
+      box-shadow: 0 7px 25px var(--glow);
+    }
+
+    .btn:active { transform: scale(.96); }
+
+    .btn-primary {
+      color: #fff;
+      border: none;
+      background: linear-gradient(120deg, var(--a), var(--b));
+      box-shadow: 0 6px 22px var(--glow);
+    }
+
+    .btn-primary:hover { filter: brightness(1.1); }
+
+    .btn-active {
+      border-color: var(--a);
+      background: color-mix(in srgb, var(--a) 19%, var(--panel));
+    }
+
+    .theme-dot {
+      width: 17px;
+      height: 17px;
+      display: inline-block;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--dot1), var(--dot2));
+      box-shadow: 0 0 12px color-mix(in srgb, var(--dot1) 50%, transparent);
+    }
+
+    .theme-option {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      text-align: left;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      transition: all .25s;
+      font-size: 12px;
+    }
+
+    .theme-option:hover { transform: translateY(-3px); }
+    .theme-option.selected { border-color: var(--a); background: var(--glow); }
+
+    .stat-chip {
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--panel) 60%, transparent);
+      border-radius: 13px;
+      padding: 12px 15px;
+    }
+
+    .mono { font-family: 'DM Mono', monospace; font-variant-numeric: tabular-nums; }
+
+    .lap-row {
+      display: grid;
+      grid-template-columns: 42px 1fr 1fr;
+      gap: 10px;
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border);
+      animation: slideIn .35s ease both;
+      font-size: 12px;
+    }
+
+    .lap-row:last-child { border-bottom: none; }
+    .lap-best { color: #35d6a0; }
+    .lap-worst { color: #ff8b9c; }
+
+    .ring {
+      width: 210px;
+      height: 210px;
+      position: relative;
+      margin: 0 auto;
+    }
+
+    .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .ring circle { fill: none; stroke-width: 8; }
+    .ring .track { stroke: var(--border); }
+    .ring .progress {
+      stroke: url(#ringGradient);
+      stroke-linecap: round;
+      transition: stroke-dashoffset .4s linear;
+      filter: drop-shadow(0 0 7px var(--glow));
+    }
+
+    .ring-content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .progress-track {
+      height: 6px;
+      border-radius: 99px;
+      background: var(--border);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--a), var(--b));
+      border-radius: inherit;
+      transition: width .4s linear;
+    }
+
+    .sound-card {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      text-align: left;
+      background: color-mix(in srgb, var(--panel) 65%, transparent);
+      color: var(--text);
+      cursor: pointer;
+      transition: all .25s;
+      min-width: 0;
+    }
+
+    .sound-card:hover { transform: translateY(-3px); }
+    .sound-card.playing { border-color: var(--b); box-shadow: 0 0 22px var(--glow); }
+
+    .sound-visual {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 24px;
+    }
+
+    .sound-visual i {
+      display: block;
+      width: 3px;
+      height: 5px;
+      border-radius: 4px;
+      background: var(--b);
+    }
+
+    .playing .sound-visual i { animation: wave .7s ease-in-out infinite alternate; }
+    .playing .sound-visual i:nth-child(2n) { animation-delay: -.35s; }
+    .playing .sound-visual i:nth-child(3n) { animation-delay: -.2s; }
+
+    @keyframes wave {
+      from { height: 4px; }
+      to { height: 22px; }
+    }
+
+    .section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .19em;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .separator { border-color: var(--border); }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--a);
+      cursor: pointer;
+    }
+
+    select, input[type="number"] {
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 11px;
+      outline: none;
+    }
+
+    option { background: var(--bg); color: var(--text); }
+
+    .theme-fab {
+      position: fixed;
+      z-index: 20;
+      bottom: 24px;
+      right: 24px;
+      width: 54px;
+      height: 54px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--a), var(--b));
+      border: none;
+      color: white;
+      font-size: 22px;
+      cursor: pointer;
+      box-shadow: 0 10px 30px var(--glow);
+      transition: transform .25s;
+    }
+
+    .theme-fab:hover { transform: rotate(35deg) scale(1.08); }
+    .theme-popover { position: fixed; z-index: 19; right: 24px; bottom: 88px; width: min(310px, calc(100vw - 32px)); }
+    .hidden-panel { display: none !important; }
+
+    button:focus-visible, select:focus-visible, input:focus-visible {
+      outline: 2px solid var(--b);
+      outline-offset: 3px;
+    }
+
+    @media (max-width: 640px) {
+      .glass { border-radius: 20px; }
+      .clock-digits { font-size: clamp(2.9rem, 12vw, 4.8rem); }
+      .ring { width: 185px; height: 185px; }
+      .theme-fab { bottom: 15px; right: 15px; }
+      .theme-popover { bottom: 78px; right: 15px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body data-theme="cyberpunk" class="day-night">
+  <div class="ambient"></div>
+  <div class="noise"></div>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between py-6 animate-enter">
+      <a href="#" class="flex items-center gap-3 no-underline" style="color:var(--text)">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
+             style="background:linear-gradient(135deg,var(--a),var(--b));box-shadow:0 0 25px var(--glow)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 7v5l3 2"/>
+            <path d="M12 2v2M22 12h-2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="font-bold text-lg tracking-widest">CHRONOVA<span class="gradient-text">.</span></div>
+          <div class="muted text-xs tracking-wider">TIME, REIMAGINED</div>
+        </div>
+      </a>
+
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-2 text-xs muted">
+          <span class="w-2 h-2 rounded-full" style="background:#35d6a0;box-shadow:0 0 10px #35d6a0"></span>
+          LOCAL TIME
+        </div>
+        <button id="headerTheme" class="btn" aria-label="Open theme selector">Themes <span class="gradient-text">✳</span></button>
+      </div>
+    </header>
+
+    <!-- Main clock -->
+    <section class="glass p-6 sm:p-10 lg:p-12 mt-4 relative overflow-hidden animate-enter delay-1">
+      <div class="absolute -top-20 -right-20 w-64 h-64 rounded-full pointer-events-none"
+           style="background:var(--glow);filter:blur(70px)"></div>
+
+      <div class="relative z-10 grid lg:grid-cols-[1.35fr_.65fr] gap-10 items-center">
+        <div>
+          <div class="flex items-center gap-3 mb-7">
+            <span class="section-label">YOUR MOMENT, RIGHT NOW</span>
+            <span class="w-2 h-2 rounded-full" style="background:var(--b);animation:pulse 2s infinite"></span>
+          </div>
+
+          <div id="greeting" class="text-xl sm:text-2xl font-medium mb-4">Good evening.</div>
+
+          <div class="clock-digits gradient-text" aria-label="Current local time">
+            <span id="hours">00</span><span>:</span><span id="minutes">00</span><span class="seconds">:<span id="seconds">00</span></span><span id="ampm" class="ampm">PM</span>
+          </div>
+
+          <div id="dateText" class="mt-5 text-sm sm:text-base muted">Loading date...</div>
+
+          <div class="flex flex-wrap gap-3 mt-8">
+            <div class="stat-chip">
+              <div class="section-label mb-1">DAY OF YEAR</div>
+              <div id="dayOfYear" class="text-lg font-semibold mono">000</div>
+            </div>
+            <div class="stat-chip">
+              <div class="section-label mb-1">WEEK NUMBER</div>
+              <div id="weekNumber" class="text-lg font-semibold mono">00</div>
+            </div>
+            <div class="stat-chip">
+              <div class="section-label mb-1">TIME ZONE</div>
+              <div id="timezone" class="text-lg font-semibold mono">LOCAL</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass p-6 sm:p-7">
+          <div class="section-label mb-5">THE WORLD AROUND YOU</div>
+          <div class="flex items-center gap-4 mb-6">
+            <div id="dayIcon" class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
+                 style="background:var(--glow)">☀</div>
+            <div>
+              <div id="dayPhase" class="font-semibold text-lg">Evening glow</div>
+              <div id="daySubtitle" class="muted text-sm mt-1">The day is winding down.</div>
+            </div>
+          </div>
+          <div class="progress-track mb-3">
+            <div id="dayProgress" class="progress-fill"></div>
+          </div>
+          <div class="flex justify-between text-xs muted">
+            <span>00:00</span><span id="dayPercent">0% of the day</span><span>24:00</span>
+          </div>
+          <hr class="separator my-6">
+          <div class="flex justify-between items-center gap-3">
+            <div>
+              <div class="text-sm font-semibold">12 / 24 hour clock</div>
+              <div class="muted text-xs mt-1">Switch your time format</div>
+            </div>
+            <button id="formatToggle" class="btn btn-active" aria-pressed="false">12H</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Theme selector panel -->
+    <section id="themePanel" class="glass p-5 mt-5 hidden-panel animate-enter">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <div class="font-semibold">Choose your universe</div>
+          <div class="muted text-xs mt-1">One tap. Entirely different energy.</div>
+        </div>
+        <button id="closeThemes" class="btn" aria-label="Close theme selector">Close</button>
+      </div>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <button class="theme-option selected" data-theme-choice="cyberpunk">
+          <span class="theme-dot mb-3" style="--dot1:#8b5cf6;--dot2:#22d3ee"></span>
+          <div class="font-bold">Cyberpunk</div>
+          <div class="muted mt-1">Electric after dark</div>
+        </button>
+        <button class="theme-option" data-theme-choice="synthwave">
+          <span class="theme-dot mb-3" style="--dot1:#ff4ecd;--dot2:#ff9d5c"></span>
+          <div class="font-bold">Synthwave</div>
+          <div class="muted mt-1">Retro-future sunset</div>
+        </button>
+        <button class="theme-option" data-theme-choice="pastel">
+          <span class="theme-dot mb-3" style="--dot1:#ee91bd;--dot2:#54bcd1"></span>
+          <div class="font-bold">Soft Pastel</div>
+          <div class="muted mt-1">Calm, clean, airy</div>
+        </button>
+        <button class="theme-option" data-theme-choice="aurora">
+          <span class="theme-dot mb-3" style="--dot1:#40e0b0;--dot2:#64a8ff"></span>
+          <div class="font-bold">Aurora</div>
+          <div class="muted mt-1">Northern lights energy</div>
+        </button>
+      </div>
+    </section>
+
+    <!-- Tool cards -->
+    <div class="grid lg:grid-cols-2 gap-5 mt-5">
+
+      <!-- Stopwatch -->
+      <section class="glass p-6 sm:p-8 animate-enter delay-1">
+        <div class="flex justify-between items-start mb-7">
+          <div>
+            <div class="section-label mb-2">PRECISION TOOL 01</div>
+            <h2 class="text-2xl font-bold">Stopwatch<span class="gradient-text">.</span></h2>
+            <p class="muted text-sm mt-1">Every second counts. Every lap matters.</p>
+          </div>
+          <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
+               style="background:var(--glow);color:var(--b)">
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="13" r="8.5"/><path d="M12 8v5l3 2M9 2h6M12 2v2M19 5l1.5 1.5"/>
+            </svg>
+          </div>
+        </div>
+
+        <div id="stopwatchDisplay" class="mono text-4xl sm:text-5xl font-medium tracking-tight text-center py-7 gradient-text">00:00:00.00</div>
+        <div class="text-center muted text-xs mb-7">HOURS : MINUTES : SECONDS . HUNDREDTHS</div>
+
+        <div class="flex justify-center gap-3 flex-wrap">
+          <button id="swStart" class="btn btn-primary min-w-24">Start</button>
+          <button id="swLap" class="btn min-w-24" disabled>Lap</button>
+          <button id="swReset" class="btn min-w-24">Reset</button>
+        </div>
+
+        <div class="flex justify-between items-center mt-8 mb-2">
+          <span class="section-label">LAP HISTORY</span>
+          <span id="lapCount" class="muted text-xs">0 LAPS</span>
+        </div>
+        <div class="grid grid-cols-[42px_1fr_1fr] gap-2 px-2 text-xs muted mb-1">
+          <span>NO.</span><span>LAP TIME</span><span>TOTAL TIME</span>
+        </div>
+        <div id="laps" class="max-h-52 overflow-y-auto">
+          <div id="emptyLaps" class="muted text-sm text-center py-6">Your laps will appear here.</div>
+        </div>
+        <div class="flex justify-between items-center mt-4">
+          <span id="swBest" class="text-xs muted">Best lap: —</span>
+          <button id="clearLaps" class="btn text-xs">Clear laps</button>
+        </div>
+      </section>
+
+      <!-- Pomodoro -->
+      <section class="glass p-6 sm:p-8 animate-enter delay-2">
+        <div class="flex justify-between items-start mb-5">
+          <div>
+            <div class="section-label mb-2">PRECISION TOOL 02</div>
+            <h2 class="text-2xl font-bold">Focus mode<span class="gradient-text">.</span></h2>
+            <p class="muted text-sm mt-1">Less distraction. More intention.</p>
+          </div>
+          <div class="w-11 h-11 rounded-2xl flex items-center justify-center"
+               style="background:var(--glow);color:var(--a)">
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="flex gap-2 justify-center mb-6">
+          <button class="btn btn-active focus-mode" data-mode="focus">Focus · 25m</button>
+          <button class="btn focus-mode" data-mode="short">Short break · 5m</button>
+          <button class="btn focus-mode" data-mode="long">Long break · 15m</button>
+        </div>
+
+        <div class="ring">
+          <svg viewBox="0 0 210 210" aria-hidden="true">
+            <defs>
+              <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--a)"/>
+                <stop offset="100%" stop-color="var(--b)"/>
+              </linearGradient>
+            </defs>
+            <circle class="track" cx="105" cy="105" r="91"/>
+            <circle id="focusRing" class="progress" cx="105" cy="105" r="91"
+                    stroke-dasharray="571.77" stroke-dashoffset="0"/>
+          </svg>
+          <div class="ring-content">
+            <div id="focusModeLabel" class="section-label mb-3">DEEP FOCUS</div>
+            <div id="focusDisplay" class="mono text-4xl font-medium tracking-tight">25:00</div>
+            <div id="focusStatus" class="muted text-xs mt-3">Ready when you are</div>
+          </div>
+        </div>
+
+        <div class="flex justify-center gap-3 mt-6">
+          <button id="focusStart" class="btn btn-primary min-w-28">Start focus</button>
+          <button id="focusReset" class="btn min-w-24">Reset</button>
+        </div>
+
+        <div class="mt-7">
+          <div class="flex justify-between text-xs mb-2">
+            <span class="muted">SESSION PROGRESS</span>
+            <span id="focusPercent" class="font-semibold">0%</span>
+          </div>
+          <div class="progress-track"><div id="focusBar" class="progress-fill"></div></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mt-6">
+          <div class="stat-chip">
+            <div class="section-label mb-1">COMPLETED</div>
+            <div id="completedSessions" class="text-xl font-semibold">0 sessions</div>
+          </div>
+          <div class="stat-chip">
+            <div class="section-label mb-1">TOTAL FOCUS</div>
+            <div id="focusTotal" class="text-xl font-semibold">0 min</div>
+          </div>
+        </div>
+        <p class="muted text-xs mt-4">Tip: choose a session, press start, and let the timer handle the countdown.</p>
+      </section>
+    </div>
+
+    <!-- Ambient audio -->
+    <section class="glass p-6 sm:p-8 mt-5 animate-enter delay-3">
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
+        <div>
+          <div class="section-label mb-2">YOUR PERSONAL SOUNDTRACK</div>
+          <h2 class="text-2xl sm:text-3xl font-bold">Ambient studio<span class="gradient-text">.</span></h2>
+          <p class="muted text-sm mt-2">Choose a soundscape. Find your frequency.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="audioStatus" class="muted text-xs">AUDIO OFF</span>
+          <button id="muteAll" class="btn">Stop all</button>
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-3">
+        <button class="sound-card" data-sound="rain" aria-pressed="false">
+          <div class="flex justify-between items-center mb-4">
+            <div class="text-2xl">RAIN</div>
+            <div class="sound-visual" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="font-semibold">Rain on glass</div>
+          <div class="muted text-xs mt-1">Soft, steady rainfall</div>
+          <div class="mt-4 text-xs gradient-text sound-action">TAP TO PLAY +</div>
+        </button>
+
+        <button class="sound-card" data-sound="forest" aria-pressed="false">
+          <div class="flex justify-between items-center mb-4">
+            <div class="text-2xl">FOREST</div>
+            <div class="sound-visual" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="font-semibold">Forest ambience</div>
+          <div class="muted text-xs mt-1">Wind and natural textures</div>
+          <div class="mt-4 text-xs gradient-text sound-action">TAP TO PLAY +</div>
+        </button>
+
+        <button class="sound-card" data-sound="lofi" aria-pressed="false">
+          <div class="flex justify-between items-center mb-4">
+            <div class="text-2xl">LO-FI</div>
+            <div class="sound-visual" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="font-semibold">Lo-fi tones</div>
+          <div class="muted text-xs mt-1">Gentle synthesized chords</div>
+          <div class="mt-4 text-xs gradient-text sound-action">TAP TO PLAY +</div>
+        </button>
+      </div>
+
+      <div class="mt-7 glass p-5">
+        <div class="flex items-center justify-between mb-3">
+          <label for="volume" class="text-sm font-semibold">MASTER VOLUME</label>
+          <span id="volumeValue" class="mono muted text-sm">25%</span>
+        </div>
+        <input id="volume" type="range" min="0" max="100" value="25" aria-label="Master volume">
+        <div class="flex justify-between text-xs muted mt-2"><span>QUIET</span><span>IMMERSIVE</span></div>
+        <p class="muted text-xs mt-4">Sounds are synthesized in your browser. Start playback with a sound button; your browser may require this first interaction to enable audio.</p>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-10 text-center">
+      <div class="text-sm font-bold tracking-[.25em] gradient-text">MAKE EVERY SECOND COUNT.</div>
+      <p class="muted text-xs mt-3">CHRONOVA · A little more intention, every day.</p>
+      <p class="muted text-xs mt-2">Clock follows your device's local time.</p>
+    </footer>
+  </main>
+
+  <!-- Floating theme button -->
+  <button id="themeFab" class="theme-fab" aria-label="Open theme selector" aria-expanded="false">✳</button>
+
+  <script>
+    'use strict';
+
+    // -------------------------------------------
+    // Helpers
+    // -------------------------------------------
+    const $ = id => document.getElementById(id);
+    const pad = n => String(n).padStart(2, '0');
+
+    function formatStopwatch(ms) {
+      const centiseconds = Math.floor(ms / 10);
+      const cs = centiseconds % 100;
+      const totalSeconds = Math.floor(centiseconds / 100);
+      const sec = totalSeconds % 60;
+      const min = Math.floor(totalSeconds / 60) % 60;
+      const hrs = Math.floor(totalSeconds / 3600);
+      return `${pad(hrs)}:${pad(min)}:${pad(sec)}.${pad(cs)}`;
+    }
+
+    function formatLap(ms) {
+      const cs = Math.floor(ms / 10);
+      const hundredths = cs % 100;
+      const totalSeconds = Math.floor(cs / 100);
+      const seconds = totalSeconds % 60;
+      const minutes = Math.floor(totalSeconds / 60) % 60;
+      const hours = Math.floor(totalSeconds / 3600);
+      return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}.${pad(hundredths)}`;
+    }
+
+    // -------------------------------------------
+    // Live clock and day-based styling
+    // -------------------------------------------
+    let use24Hour = false;
+    const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    function getISOWeek(date) {
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const day = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - day);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    }
+
+    function updateClock() {
+      const now = new Date();
+      const h = now.getHours();
+      const m = now.getMinutes();
+      const s = now.getSeconds();
+
+      $('hours').textContent = pad(use24Hour ? h : (h % 12 || 12));
+      $('minutes').textContent = pad(m);
+      $('seconds').textContent = pad(s);
+      $('ampm').textContent = h >= 12 ? 'PM' : 'AM';
+      $('ampm').style.display = use24Hour ? 'none' : 'inline-block';
+
+      $('dateText').textContent =
+        `${dayNames[now.getDay()]}, ${monthNames[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+
+      const startOfYear = new Date(now.getFullYear(), 0, 0);
+      const dayOfYear = Math.floor((now - startOfYear) / 86400000);
+      $('dayOfYear').textContent = pad(dayOfYear);
+      $('weekNumber').textContent = pad(getISOWeek(now));
+
+      try {
+        const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+        $('timezone').textContent = zone.split('/').pop().replaceAll('_', ' ');
+        $('timezone').title = zone;
+      } catch {
+        $('timezone').textContent = 'LOCAL';
+      }
+
+      const minutesSinceMidnight = h * 60 + m;
+      const fraction = (minutesSinceMidnight + s / 60) / 1440;
+      $('dayProgress').style.width = `${fraction * 100}%`;
+      $('dayPercent').textContent = `${(fraction * 100).toFixed(1)}% of the day`;
+
+      let phase, subtitle, greeting, icon, dayClass;
+      if (h >= 5 && h < 12) {
+        phase = 'Morning glow'; subtitle = 'A fresh start. New possibilities.';
+        greeting = 'Good morning.'; icon = 'SUN'; dayClass = 'day-morning';
+      } else if (h >= 12 && h < 17) {
+        phase = 'Daylight mode'; subtitle = 'Make the most of today.';
+        greeting = 'Good afternoon.'; icon = 'DAY'; dayClass = '';
+      } else if (h >= 17 && h < 20) {
+        phase = 'Golden hour'; subtitle = 'The day is turning to gold.';
+        greeting = 'Good evening.'; icon = 'DUSK'; dayClass = 'day-sunset';
+      } else {
+        phase = 'After dark'; subtitle = 'Slow down. Find your focus.';
+        greeting = h >= 20 ? 'Good evening.' : 'Hello, night owl.';
+        icon = 'NIGHT'; dayClass = 'day-night';
+      }
+
+      document.body.classList.remove('day-morning', 'day-sunset', 'day-night');
+      if (dayClass) document.body.classList.add(dayClass);
+      $('dayPhase').textContent = phase;
+      $('daySubtitle').textContent = subtitle;
+      $('greeting').textContent = greeting;
+      $('dayIcon').textContent = icon;
+    }
+
+    updateClock();
+    setInterval(updateClock, 200);
+
+    $('formatToggle').addEventListener('click', () => {
+      use24Hour = !use24Hour;
+      $('formatToggle').textContent = use24Hour ? '24H' : '12H';
+      $('formatToggle').setAttribute('aria-pressed', String(use24Hour));
+      updateClock();
+    });
+
+    // -------------------------------------------
+    // Themes
+    // -------------------------------------------
+    const themeNames = ['cyberpunk', 'synthwave', 'pastel', 'aurora'];
+    const themePanel = $('themePanel');
+
+    function setTheme(name) {
+      if (!themeNames.includes(name)) return;
+      document.body.dataset.theme = name;
+      document.querySelectorAll('[data-theme-choice]').forEach(button => {
+        const selected = button.dataset.themeChoice === name;
+        button.classList.toggle('selected', selected);
+        button.setAttribute('aria-pressed', String(selected));
+      });
+    }
+
+    function toggleThemes(force) {
+      const shouldOpen = typeof force === 'boolean'
+        ? force : themePanel.classList.contains('hidden-panel');
+      themePanel.classList.toggle('hidden-panel', !shouldOpen);
+      $('themeFab').setAttribute('aria-expanded', String(shouldOpen));
+      if (shouldOpen) themePanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    $('themeFab').addEventListener('click', () => toggleThemes());
+    $('headerTheme').addEventListener('click', () => toggleThemes());
+    $('closeThemes').addEventListener('click', () => toggleThemes(false));
+
+    document.querySelectorAll('[data-theme-choice]').forEach(button => {
+      button.addEventListener('click', () => setTheme(button.dataset.themeChoice));
+    });
+
+    // -------------------------------------------
+    // Stopwatch: monotonic timing avoids drift
+    // -------------------------------------------
+    let swRunning = false;
+    let swElapsed = 0;
+    let swStartedAt = 0;
+    let swFrame = null;
+    let laps = [];
+    let lastLapAt = 0;
+
+    function getSwElapsed() {
+      return swElapsed + (swRunning ? performance.now() - swStartedAt : 0);
+    }
+
+    function drawStopwatch() {
+      $('stopwatchDisplay').textContent = formatStopwatch(getSwElapsed());
+      if (swRunning) swFrame = requestAnimationFrame(drawStopwatch);
+    }
+
+    function renderLaps() {
+      const container = $('laps');
+      container.innerHTML = '';
+      $('lapCount').textContent = `${laps.length} ${laps.length === 1 ? 'LAP' : 'LAPS'}`;
+
+      if (!laps.length) {
+        const empty = document.createElement('div');
+        empty.className = 'muted text-sm text-center py-6';
+        empty.textContent = 'Your laps will appear here.';
+        container.appendChild(empty);
+        $('swBest').textContent = 'Best lap: —';
+        return;
+      }
+
+      const best = Math.min(...laps.map(lap => lap.duration));
+      const worst = Math.max(...laps.map(lap => lap.duration));
+
+      laps.forEach(lap => {
+        const row = document.createElement('div');
+        row.className = 'lap-row';
+        const number = document.createElement('span');
+        number.className = 'muted mono';
+        number.textContent = pad(lap.number);
+
+        const duration = document.createElement('span');
+        duration.className = 'mono ' + (lap.duration === best ? 'lap-best' : lap.duration === worst && laps.length > 1 ? 'lap-worst' : '');
+        duration.textContent = formatLap(lap.duration);
+
+        const total = document.createElement('span');
+        total.className = 'mono';
+        total.textContent = formatLap(lap.total);
+
+        row.append(number, duration, total);
+        container.prepend(row);
+      });
+
+      $('swBest').textContent = `Best lap: ${formatLap(best)}`;
+    }
+
+    $('swStart').addEventListener('click', () => {
+      if (!swRunning) {
+        swStartedAt = performance.now();
+        swRunning = true;
+        $('swStart').textContent = 'Pause';
+        $('swStart').classList.remove('btn-primary');
+        $('swLap').disabled = false;
+        $('swLap').style.opacity = '1';
+        drawStopwatch();
+      } else {
+        swElapsed = getSwElapsed();
+        swRunning = false;
+        cancelAnimationFrame(swFrame);
+        $('swStart').textContent = 'Resume';
+        $('swStart').classList.add('btn-primary');
+        drawStopwatch();
+      }
+    });
+
+    $('swLap').addEventListener('click', () => {
+      if (!swRunning) return;
+      const total = getSwElapsed();
+      laps.push({
+        number: laps.length + 1,
+        total,
+        duration: total - lastLapAt
+      });
+      lastLapAt = total;
+      renderLaps();
+    });
+
+    $('swReset').addEventListener('click', () => {
+      swRunning = false;
+      cancelAnimationFrame(swFrame);
+      swElapsed = 0;
+      swStartedAt = 0;
+      lastLapAt = 0;
+      laps = [];
+      $('swStart').textContent = 'Start';
+      $('swStart').classList.add('btn-primary');
+      $('swLap').disabled = true;
+      $('swLap').style.opacity = '.45';
+      drawStopwatch();
+      renderLaps();
+    });
+
+    $('clearLaps').addEventListener('click', () => {
+      laps = [];
+      lastLapAt = getSwElapsed();
+      renderLaps();
+    });
+
+    $('swLap').disabled = true;
+    $('swLap').style.opacity = '.45';
+    renderLaps();
+
+    // -------------------------------------------
+    // Pomodoro countdown
+    // -------------------------------------------
+    const modes = {
+      focus: { seconds: 25 * 60, label: 'DEEP FOCUS' },
+      short: { seconds: 5 * 60, label: 'SHORT BREAK' },
+      long: { seconds: 15 * 60, label: 'LONG BREAK' }
+    };
+
+    const ringCircumference = 2 * Math.PI * 91;
+    let focusMode = 'focus';
+    let focusDuration = modes.focus.seconds;
+    let focusRemaining = focusDuration;
+    let focusRunning = false;
+    let focusDeadline = 0;
+    let focusInterval = null;
+    let completedSessions = 0;
+    let totalFocusMinutes = 0;
+    let focusAudioContext = null;
+
+    function renderFocus() {
+      const remaining = Math.max(0, focusRemaining);
+      const minutes = Math.floor(remaining / 60);
+      const seconds = remaining % 60;
+      const elapsedFraction = 1 - remaining / focusDuration;
+
+      $('focusDisplay').textContent = `${pad(minutes)}:${pad(seconds)}`;
+      $('focusModeLabel').textContent = modes[focusMode].label;
+      $('focusRing').style.strokeDasharray = ringCircumference;
+      $('focusRing').style.strokeDashoffset = ringCircumference * (1 - elapsedFraction);
+      $('focusBar').style.width = `${elapsedFraction * 100}%`;
+      $('focusPercent').textContent = `${Math.round(elapsedFraction * 100)}%`;
+      $('completedSessions').textContent = `${completedSessions} ${completedSessions === 1 ? 'session' : 'sessions'}`;
+      $('focusTotal').textContent = `${totalFocusMinutes} min`;
+    }
+
+    function setFocusStatus(text) {
+      $('focusStatus').textContent = text;
+    }
+
+    function stopFocusInterval() {
+      if (focusInterval !== null) {
+        clearInterval(focusInterval);
+        focusInterval = null;
+      }
+    }
+
+    function tickFocus() {
+      focusRemaining = Math.max(0, Math.ceil((focusDeadline - Date.now()) / 1000));
+      renderFocus();
+
+      if (focusRemaining <= 0) {
+        focusRunning = false;
+        stopFocusInterval();
+        $('focusStart').textContent = 'Start focus';
+        $('focusStart').classList.add('btn-primary');
+        setFocusStatus('Session complete!');
+        if (focusMode === 'focus') {
+          completedSessions++;
+          totalFocusMinutes += modes.focus.seconds / 60;
+        }
+        renderFocus();
+        playTimerChime();
+      }
+    }
+
+    function setFocusMode(mode) {
+      if (!modes[mode]) return;
+      focusRunning = false;
+      stopFocusInterval();
+      focusMode = mode;
+      focusDuration = modes[mode].seconds;
+      focusRemaining = focusDuration;
+      $('focusStart').textContent = 'Start focus';
+      $('focusStart').classList.add('btn-primary');
+      setFocusStatus('Ready when you are');
+
+      document.querySelectorAll('.focus-mode').forEach(button => {
+        button.classList.toggle('btn-active', button.dataset.mode === mode);
+      });
+      renderFocus();
+    }
+
+    $('focusStart').addEventListener('click', () => {
+      if (!focusRunning) {
+        if (focusRemaining <= 0) focusRemaining = focusDuration;
+        focusDeadline = Date.now() + focusRemaining * 1000;
+        focusRunning = true;
+        $('focusStart').textContent = 'Pause';
+        $('focusStart').classList.remove('btn-primary');
+        setFocusStatus('Timer is running');
+        stopFocusInterval();
+        tickFocus();
+        if (focusRunning) focusInterval = setInterval(tickFocus, 200);
+      } else {
+        focusRemaining = Math.max(0, Math.ceil((focusDeadline - Date.now()) / 1000));
+        focusRunning = false;
+        stopFocusInterval();
+        $('focusStart').textContent = 'Resume';
+        $('focusStart').classList.add('btn-primary');
+        setFocusStatus('Paused · take your time');
+        renderFocus();
+      }
+    });
+
+    $('focusReset').addEventListener('click', () => {
+      focusRunning = false;
+      stopFocusInterval();
+      focusRemaining = focusDuration;
+      $('focusStart').textContent = 'Start focus';
+      $('focusStart').classList.add('btn-primary');
+      setFocusStatus('Ready when you are');
+      renderFocus();
+    });
+
+    document.querySelectorAll('.focus-mode').forEach(button => {
+      button.addEventListener('click', () => setFocusMode(button.dataset.mode));
+    });
+
+    // A gentle synthesized chime. It plays only after user interaction
+    // has enabled browser audio.
+    async function playTimerChime() {
+      try {
+        if (!audioContext) return;
+        if (audioContext.state === 'suspended') await audioContext.resume();
+        [660, 880].forEach((frequency, i) => {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = frequency;
+          gain.gain.setValueAtTime(0.0001, audioContext.currentTime + i * .22);
+          gain.gain.exponentialRampToValueAtTime(.12, audioContext.currentTime + i * .22 + .03);
+          gain.gain.exponentialRampToValueAtTime(.0001, audioContext.currentTime + i * .22 + .6);
+          osc.connect(gain);
+          gain.connect(audioContext.destination);
+          osc.start(audioContext.currentTime + i * .22);
+          osc.stop(audioContext.currentTime + i * .22 + .65);
+        });
+      } catch (error) {
+        console.warn('Timer chime unavailable:', error);
+      }
+    }
+
+    renderFocus();
+
+    // -------------------------------------------
+    // Ambient audio studio using Web Audio API
+    // -------------------------------------------
+    let audioContext = null;
+    let masterGain = null;
+    const sounds = new Map();
+    let volume = .25;
+
+    function ensureAudio() {
+      if (!audioContext) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) throw new Error('Web Audio is not supported in this browser.');
+        audioContext = new AudioCtx();
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = volume;
+        masterGain.connect(audioContext.destination);
+      }
+      if (audioContext.state === 'suspended') return audioContext.resume();
+      return Promise.resolve();
+    }
+
+    function makeNoiseBuffer(duration = 3) {
+      const sampleRate = audioContext.sampleRate;
+      const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      return buffer;
+    }
+
+    function makeNoiseSound(kind) {
+      const source = audioContext.createBufferSource();
+      const filter = audioContext.createBiquadFilter();
+      const gain = audioContext.createGain();
+
+      source.buffer = makeNoiseBuffer(kind === 'rain' ? 4 : 5);
+      source.loop = true;
+      filter.type = kind === 'rain' ? 'lowpass' : 'bandpass';
+      filter.frequency.value = kind === 'rain' ? 1100 : 600;
+      filter.Q.value = kind === 'forest' ? .6 : .3;
+      gain.gain.value = kind === 'rain' ? .24 : .16;
+
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+      source.start();
+
+      const nodes = [{ node: source, stop: true }, { node: filter }, { node: gain }];
+      if (kind === 'forest') {
+        // A very soft, slow wind-like tonal layer.
+        const osc = audioContext.createOscillator();
+        const windGain = audioContext.createGain();
+        const windFilter = audioContext.createBiquadFilter();
+        osc.type = 'sine';
+        osc.frequency.value = 95;
+        windFilter.type = 'lowpass';
+        windFilter.frequency.value = 170;
+        windGain.gain.value = .045;
+        osc.connect(windFilter);
+        windFilter.connect(windGain);
+        windGain.connect(masterGain);
+        osc.start();
+        nodes.push({ node: osc, stop: true }, { node: windFilter }, { node: windGain });
+      }
+      return nodes;
+    }
+
+    function makeLofiSound() {
+      const nodes = [];
+      const bus = audioContext.createGain();
+      bus.gain.value = .16;
+      bus.connect(masterGain);
+
+      // A gentle repeating chord, generated without external audio files.
+      const chords = [
+        [220, 261.63, 329.63],
+        [196, 246.94, 293.66],
+        [174.61, 220, 261.63],
+        [196, 246.94, 311.13]
+      ];
+
+      let step = 0;
+      let stopped = false;
+      let timeout = null;
+
+      function playChord() {
+        if (stopped) return;
+        const chord = chords[step % chords.length];
+        chord.forEach((frequency, index) => {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          const filter = audioContext.createBiquadFilter();
+
+          osc.type = index === 1 ? 'triangle' : 'sine';
+          osc.frequency.value = frequency;
+          filter.type = 'lowpass';
+          filter.frequency.value = 850;
+          gain.gain.setValueAtTime(.0001, audioContext.currentTime);
+          gain.gain.exponentialRampToValueAtTime(.15 / (index + 1), audioContext.currentTime + .15);
+          gain.gain.setTargetAtTime(.0001, audioContext.currentTime + 1.15, .35);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(bus);
+          osc.start();
+          osc.stop(audioContext.currentTime + 3);
+        });
+        step++;
+        timeout = setTimeout(playChord, 2400);
+      }
+
+      playChord();
+
+      return [{
+        node: bus,
+        stop: false,
+        dispose: () => {
+          stopped = true;
+          clearTimeout(timeout);
+          try {
+            bus.gain.setTargetAtTime(.0001, audioContext.currentTime, .05);
+            setTimeout(() => {
+              try { bus.disconnect(); } catch {}
+            }, 400);
+          } catch {}
+        }
+      }];
+    }
+
+    function stopSound(name) {
+      const nodes = sounds.get(name);
+      if (!nodes) return;
+
+      nodes.forEach(item => {
+        if (item.dispose) {
+          item.dispose();
+        } else if (item.stop) {
+          try { item.node.stop(); } catch {}
+          try { item.node.disconnect(); } catch {}
+        } else {
+          try { item.node.disconnect(); } catch {}
+        }
+      });
+
+      sounds.delete(name);
+      updateSoundButtons();
+    }
+
+    async function toggleSound(name) {
+      if (sounds.has(name)) {
+        stopSound(name);
+        return;
+      }
+
+      try {
+        await ensureAudio();
+        const nodes = name === 'lofi' ? makeLofiSound() : makeNoiseSound(name);
+        sounds.set(name, nodes);
+        updateSoundButtons();
+      } catch (error) {
+        console.error(error);
+        $('audioStatus').textContent = error.message || 'AUDIO UNAVAILABLE';
+      }
+    }
+
+    function updateSoundButtons() {
+      document.querySelectorAll('[data-sound]').forEach(button => {
+        const playing = sounds.has(button.dataset.sound);
+        button.classList.toggle('playing', playing);
+        button.setAttribute('aria-pressed', String(playing));
+        button.querySelector('.sound-action').textContent = playing ? 'PLAYING · TAP TO STOP' : 'TAP TO PLAY +';
+      });
+
+      $('audioStatus').textContent = sounds.size ? `${sounds.size} SOUND${sounds.size > 1 ? 'S' : ''} PLAYING` : 'AUDIO OFF';
+    }
+
+    document.querySelectorAll('[data-sound]').forEach(button => {
+      button.addEventListener('click', () => toggleSound(button.dataset.sound));
+    });
+
+    $('muteAll').addEventListener('click', () => {
+      [...sounds.keys()].forEach(stopSound);
+      updateSoundButtons();
+    });
+
+    $('volume').addEventListener('input', event => {
+      volume = Number(event.target.value) / 100;
+      $('volumeValue').textContent = `${event.target.value}%`;
+      if (masterGain && audioContext) {
+        masterGain.gain.setTargetAtTime(volume, audioContext.currentTime, .04);
+      }
+    });
+
+    // Release sound resources if the page is being hidden for good.
+    window.addEventListener('pagehide', () => {
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close().catch(() => {});
+      }
+    });
+  </script>
+</body>
+</html>
